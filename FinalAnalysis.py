@@ -7,7 +7,7 @@ from tkinter.filedialog import askdirectory
 import tkinter.font as font
 import numpy as np
 import xlsxwriter
-import xlrd
+import openpyxl
 import sys
 import os
 import os.path
@@ -25,30 +25,52 @@ import numpy as np
 import statistics
 import scipy
 from scipy.stats import median_abs_deviation
+import re
 
+if len(sys.argv) != 2:
+    sys.exit(0)
 
-batchString = input("Batch number: ")
-#For example: 34357
-typeString = input("Type (2-S, PSS or PSP): ")
-#For example: 2-S
+batchName=sys.argv[1]
 
-mainDir = os.getcwd()
+batchString = re.findall('[0-9][0-9]+',batchName)[0]
+typeString = re.findall('[2P][-S][SP]',batchName)[0]
+print("Batch number: %s" % batchString)
+print("Batch type: %s" % typeString)
 
+batchdir=os.path.abspath(batchName)
+
+strutdir=[]
+strut=[]
+for item in os.listdir(batchdir):
+    if item.startswith("HPK"):
+        strut.append(item)
+        strutdir.append("%s/%s" % (batchdir,item))
+
+print("Found %d structures" % len(strutdir))
+#print(strut)
+fname = []
 fieldhms = []
+for item in strutdir:
+#    print(item)
+    for filename in os.listdir(item):
+        if filename.endswith(".xlsx") and not filename.startswith("~"):
+            new_string = filename.replace(".xlsx", "")
+            if "summary" not in new_string:
+                if "_R" not in new_string:
+                    fieldhms.append(new_string)
+                    fname.append("%s/%s.xlsx" % (item,new_string))
+    fieldhms.sort()
+    fname.sort()
 
-for filename in os.listdir(mainDir):
-    if filename.endswith(".xlsx"):
-        new_string = filename.replace(".xlsx", "")
-        if "summary" not in new_string:
-            if "_R" not in new_string:
-                fieldhms.append(new_string)
-fieldhms.sort()
+#for idx,item in enumerate(fieldhms):
+#    print("%s : %s" % (item,fname[idx]))
 
 lengthArray = len(fieldhms)
 
 fieldSum = ['Median', 'Standard deviation', 'Median absolute deviation']
 
-output = 'All_flutes_summary_' + batchString + '_' + typeString + '.xlsx'
+output = batchdir+'/All_flutes_summary_' + batchString + '_' + typeString + '.xlsx'
+print("Output file: %s" % output)
 os.remove(output) if os.path.exists(output) else None
 workbook = xlsxwriter.Workbook(output)
 
@@ -57,10 +79,6 @@ row_num2 = 0
 row_num3 = 0
 row_num4 = 0
 
-fname = []
-
-for jname,dataname in enumerate(fieldhms):
-    fname.append(dataname + ".xlsx")
     
 sci_format = workbook.add_format({'num_format': '###########0.00'})
 dec_format = workbook.add_format({'num_format': '###########0.0'})
@@ -85,17 +103,18 @@ for i13,data13 in enumerate(fieldSum):
     worksheet.write(i13+2+lengthArray,0,data13,mformat)
 a1Data = []
 for jname,dataname in enumerate(fname):
-    xl_workbook = xlrd.open_workbook(dataname)
-    sheet = xl_workbook.sheet_by_index(0)
-    a1 = [sheet.cell_value(rowx=1, colx=1), sheet.cell_value(rowx=2, colx=1), sheet.cell_value(rowx=3, colx=1), sheet.cell_value(rowx=4, colx=1), sheet.cell_value(rowx=5, colx=1), -sheet.cell_value(rowx=6, colx=1), 0, 0, 0, 0]
+    print("\t%d ---> %s" % (jname,dataname))
+    xl_workbook = openpyxl.load_workbook(dataname)
+    sheet = xl_workbook.worksheets[0]
+    a1 = [sheet.cell(row=1+1, column=1+1).value, sheet.cell(row=1+2, column=1+1).value, sheet.cell(row=1+3, column=1+1).value, sheet.cell(row=1+4, column=1+1).value, sheet.cell(row=1+5, column=1+1).value, -sheet.cell(row=1+6, column=1+1).value, 0, 0, 0, 0]
     a1Data.append(a1)
     for col_num1, col_data1 in enumerate(a1):
         worksheet.write(row_num1+2, col_num1+1, col_data1, sci_format)
     dataname_R = dataname.replace('.xlsx', '_R.xlsx')
     if path.exists(dataname_R):
-        xl_workbook_R = xlrd.open_workbook(dataname_R)
-        sheet_R = xl_workbook_R.sheet_by_index(0)
-        a1 = [sheet.cell_value(rowx=1, colx=1), sheet.cell_value(rowx=2, colx=1), sheet.cell_value(rowx=3, colx=1), sheet.cell_value(rowx=4, colx=1), sheet.cell_value(rowx=5, colx=1), -sheet.cell_value(rowx=6, colx=1), sheet_R.cell_value(rowx=2, colx=1), sheet_R.cell_value(rowx=3, colx=1), sheet_R.cell_value(rowx=4, colx=1), sheet_R.cell_value(rowx=5, colx=1)]
+        xl_workbook_R = openpyxl.load_workbook(dataname_R)
+        sheet_R = xl_workbook_R.worksheets[0]
+        a1 = [sheet.cell(row=1+1, column=1+1).value, sheet.cell(row=1+2, column=1+1).value, sheet.cell(row=1+3, column=1+1).value, sheet.cell(row=1+4, column=1+1).value, sheet.cell(row=1+5, column=1+1).value, -sheet.cell(row=1+6, column=1+1).value, sheet_R.cell(row=1+2, column=1+1).value, sheet_R.cell(row=1+3, column=1+1).value, sheet_R.cell(row=1+4, column=1+1).value, sheet_R.cell(row=1+5, column=1+1).value]
         a1Data.append(a1)
         for col_num1, col_data1 in enumerate(a1):
             worksheet.write(row_num1+2, col_num1+1, col_data1, sci_format)
@@ -194,11 +213,11 @@ for i23,data23 in enumerate(fieldSum):
     worksheet.write(i23+2+lengthArray,0,data23,mformat)
 a2Data = []
 for jname,dataname in enumerate(fname):
-    xl_workbook = xlrd.open_workbook(dataname)
-    sheet = xl_workbook.sheet_by_index(0)
-    a2 = [128.5*(sheet.cell_value(rowx=3, colx=1))/(sheet.cell_value(rowx=7, colx=1)), sheet.cell_value(rowx=8, colx=1), (sheet.cell_value(rowx=9, colx=1))*0.000000000001/1.6E-019/5415000000/0.00505, 5.00 + sheet.cell_value(rowx=10, colx=1), 128.5*(sheet.cell_value(rowx=4, colx=1))/(sheet.cell_value(rowx=11, colx=1))]
-    adiel2 = sheet.cell_value(rowx=12, colx=1)
-    a2mod = [128.5*(sheet.cell_value(rowx=3, colx=1))/(sheet.cell_value(rowx=7, colx=1)), sheet.cell_value(rowx=8, colx=1), (sheet.cell_value(rowx=9, colx=1))*0.000000000001/1.6E-019/5415000000/0.00505, 5.00 + sheet.cell_value(rowx=10, colx=1), 128.5*(sheet.cell_value(rowx=4, colx=1))/(sheet.cell_value(rowx=11, colx=1)), sheet.cell_value(rowx=12, colx=1)]
+    xl_workbook = openpyxl.load_workbook(dataname)
+    sheet = xl_workbook.worksheets[0]
+    a2 = [128.5*(sheet.cell(row=1+3, column=1+1).value)/(sheet.cell(row=1+7, column=1+1).value), sheet.cell(row=1+8, column=1+1).value, (sheet.cell(row=1+9, column=1+1).value)*0.000000000001/1.6E-019/5415000000/0.00505, 5.00 + sheet.cell(row=1+10, column=1+1).value, 128.5*(sheet.cell(row=1+4, column=1+1).value)/(sheet.cell(row=1+11, column=1+1)).value]
+    adiel2 = sheet.cell(row=1+12, column=1+1).value
+    a2mod = [128.5*(sheet.cell(row=1+3, column=1+1).value)/(sheet.cell(row=1+7, column=1+1).value), sheet.cell(row=1+8, column=1+1).value, (sheet.cell(row=1+9, column=1+1).value)*0.000000000001/1.6E-019/5415000000/0.00505, 5.00 + sheet.cell(row=1+10, column=1+1).value, 128.5*(sheet.cell(row=1+4, column=1+1).value)/(sheet.cell(row=1+11, column=1+1).value), sheet.cell(row=1+12, column=1+1).value]
     a2Data.append(a2mod)
     for col_num2, col_data2 in enumerate(a2):
         worksheet.write(row_num2+2, col_num2+1, col_data2, sci_format)
@@ -252,19 +271,19 @@ for i33,data33 in enumerate(fieldSum):
     worksheet.write(i33+2+lengthArray,0,data33,mformat)
 a3Data = []
 for jname,dataname in enumerate(fname):
-    xl_workbook = xlrd.open_workbook(dataname)
-    sheet = xl_workbook.sheet_by_index(0)
-    abulk3 = sheet.cell_value(rowx=13, colx=1)
-    aiv3 = sheet.cell_value(rowx=14, colx=1)
-    acv3 = sheet.cell_value(rowx=15, colx=1)
+    xl_workbook = openpyxl.load_workbook(dataname)
+    sheet = xl_workbook.worksheets[0]
+    abulk3 = sheet.cell(row=1+13, column=1+1).value
+    aiv3 = sheet.cell(row=1+14, column=1+1).value
+    acv3 = sheet.cell(row=1+15, column=1+1).value
     acvRound3 = round(acv3, 0)
-    ametal3 = sheet.cell_value(rowx=16, colx=1)
-    checkp = (sheet.cell_value(rowx=18, colx=1))
+    ametal3 = sheet.cell(row=1+16, column=1+1).value
+    checkp = (sheet.cell(row=1+18, column=1+1).value)
     if checkp == 0:
         checkn = 1
     else:
         checkn = checkp
-    a3 = [sheet.cell_value(rowx=17, colx=1), 128.5*(sheet.cell_value(rowx=17, colx=1))/checkn, sheet.cell_value(rowx=19, colx=1)]
+    a3 = [sheet.cell(row=1+17, column=1+1).value, 128.5*(sheet.cell(row=1+17, column=1+1).value)/checkn, sheet.cell(row=1+19, column=1+1).value]
     ares3 = 0
     if acvRound3 == 100:
         ares3 = 8405
@@ -871,7 +890,7 @@ for jname,dataname in enumerate(fname):
     else:
         ares3 = -1000
 
-    a3mod = [sheet.cell_value(rowx=13, colx=1), sheet.cell_value(rowx=14, colx=1), acv3, ametal3, sheet.cell_value(rowx=17, colx=1), 128.5*(sheet.cell_value(rowx=17, colx=1))/checkn, sheet.cell_value(rowx=19, colx=1), ares3]
+    a3mod = [sheet.cell(row=1+13, column=1+1).value, sheet.cell(row=1+14, column=1+1).value, acv3, ametal3, sheet.cell(row=1+17, column=1+1).value, 128.5*(sheet.cell(row=1+17, column=1+1).value)/checkn, sheet.cell(row=1+19, column=1+1).value, ares3]
     a3Data.append(a3mod)
     worksheet.write(row_num3+2, 1, abulk3, sci_format)
     worksheet.write(row_num3+2, 2, aiv3)
@@ -958,12 +977,12 @@ for i43,data43 in enumerate(fieldSum):
     worksheet.write(i43+2+lengthArray,0,data43,mformat)
 a4Data = []
 for jname,dataname in enumerate(fname):
-    xl_workbook = xlrd.open_workbook(dataname)
-    sheet = xl_workbook.sheet_by_index(0)
-    ancbkr4 = sheet.cell_value(rowx=20, colx=1)
-    agcd4 = (sheet.cell_value(rowx=21, colx=1))*0.000000000001/1.6E-019/5415000000/0.00723
-    a4 = [5.00 + sheet.cell_value(rowx=22, colx=1), sheet.cell_value(rowx=23, colx=1), sheet.cell_value(rowx=24, colx=1), sheet.cell_value(rowx=25, colx=1), sheet.cell_value(rowx=26, colx=1)]
-    a4mod = [sheet.cell_value(rowx=20, colx=1), (sheet.cell_value(rowx=21, colx=1))*0.000000000001/1.6E-019/5415000000/0.00723, 5.00 + sheet.cell_value(rowx=22, colx=1), sheet.cell_value(rowx=23, colx=1), sheet.cell_value(rowx=24, colx=1), sheet.cell_value(rowx=25, colx=1), sheet.cell_value(rowx=26, colx=1)]
+    xl_workbook = openpyxl.load_workbook(dataname)
+    sheet = xl_workbook.worksheets[0]
+    ancbkr4 = sheet.cell(row=1+20, column=1+1).value
+    agcd4 = (sheet.cell(row=1+21, column=1+1).value)*0.000000000001/1.6E-019/5415000000/0.00723
+    a4 = [5.00 + sheet.cell(row=1+22, column=1+1).value, sheet.cell(row=1+23, column=1+1).value, sheet.cell(row=1+24, column=1+1).value, sheet.cell(row=1+25, column=1+1).value, sheet.cell(row=1+26, column=1+1).value]
+    a4mod = [sheet.cell(row=1+20, column=1+1).value, (sheet.cell(row=1+21, column=1+1).value)*0.000000000001/1.6E-019/5415000000/0.00723, 5.00 + sheet.cell(row=1+22, column=1+1).value, sheet.cell(row=1+23, column=1+1).value, sheet.cell(row=1+24, column=1+1).value, sheet.cell(row=1+25, column=1+1).value, sheet.cell(row=1+26, column=1+1).value]
     a4Data.append(a4mod)
     worksheet.write(row_num4+2, 1, ancbkr4, sci_format)
     worksheet.write(row_num4+2, 2, agcd4, sci_format)
