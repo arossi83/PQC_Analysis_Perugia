@@ -4,7 +4,7 @@ from tkinter import filedialog,StringVar
 from tkinter.ttk import Frame, Button, Style
 import sys
 import os
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2TkAgg)
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
@@ -70,7 +70,7 @@ class WinMos:
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
         
-        self.toolbar = NavigationToolbar2Tk(self.canvas, self.frame1)
+        self.toolbar = NavigationToolbar2TkAgg(self.canvas, self.frame1)
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
 
